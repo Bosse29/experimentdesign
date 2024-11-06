@@ -1,0 +1,86 @@
+---
+title: "trthh"
+output: html_document
+date: "2024-11-06"
+---
+
+```{r}
+df <- read.table("u.data", header = FALSE, sep = "\t")
+colnames(df) <- c("user id", "item id", "rating", "timestamp")
+df$date <- as.POSIXct(df$timestamp, origin = "1970-01-01", tz = "UTC")
+summary(df)
+```
+```{r}
+hist_data <- hist(df$rating, ylim = c(0,40000))
+text(x = hist_data$mids, y = hist_data$counts, labels = hist_data$counts, 
+     pos = 3, cex = 0.8, col = "black")
+```
+
+
+```{r}
+df1 <- read.table("u.user", header = FALSE, sep = "|")
+colnames(df1) <- c("user id", "age", "gender", "occupation", "zip code")
+summary(df1)
+```
+```{r}
+hist(df1$age)
+df1$gender <- as.factor(df1$gender)
+
+# Create a table of gender counts
+gender_counts <- table(df1$gender)
+
+# Create the bar plot and store bar midpoints
+bar_positions <- barplot(gender_counts, main = "Gender Distribution", ylim = c(0,800),
+                         xlab = "Gender", ylab = "Count", col = "lightblue", border = "black")
+
+# Add text labels with the total counts on top of each bar
+text(x = bar_positions, y = gender_counts, labels = gender_counts, 
+     pos = 3, cex = 0.8, col = "black")
+
+
+df1$occupation <- as.factor(df1$occupation)
+
+# Create a table of occupation counts
+occupation_counts <- table(df1$occupation)
+occupation_counts <- sort(table(df1$occupation), decreasing = FALSE)
+
+par(mar = c(10, 4, 4, 2) + 0.1) 
+# Create the bar plot with counts for each occupation
+bar_positions <- barplot(occupation_counts, main = "Occupation Distribution", ylim = c(0,240),
+                        ylab = "Count", col = "lightblue", las = 2)
+
+# Add text labels with the counts on top of each bar
+text(x = bar_positions, y = occupation_counts, labels = occupation_counts, 
+     pos = 3, cex = 0.8, col = "black")
+```
+
+
+```{r}
+df2 <- read.table("u.item", sep = "|", header = FALSE, fill = TRUE, fileEncoding = "UTF-8", quote = "\"", 
+                 col.names = c("movie_id", "movie_title", "release_date", "video_release_date",
+                               "IMDb_URL", "unknown", "Action", "Adventure", "Animation",
+                               "Children", "Comedy", "Crime", "Documentary", "Drama", 
+                               "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery", 
+                               "Romance", "Sci-Fi", "Thriller", "War", "Western"))
+df2$video_release_date <- df2$release_date
+df2$release_date <- sub(".*\\((\\d{4})\\).*", "\\1", df2$movie_title)
+summary(df2)
+```
+```{r}
+genres <- df2[ ,c("Action", "Adventure", "Animation", "Children", "Comedy", "Crime", "Documentary", "Drama", "Fantasy", "Film.Noir", "Horror", "Musical", "Mystery", "Romance", "Sci.Fi", "Thriller", "War", "Western")]
+
+# Calculate the total count of movies in each genre
+genre_counts <- colSums(genres)
+
+# Create a bar plot for genre counts
+bar_positions <- barplot(genre_counts, main = "Total Counts of Movies in Each Genre", ylim = c(0, 800),
+                         ylab = "Count of Movies", col = "lightblue", las = 2)
+
+# Add text labels with the absolute counts on top of each bar
+text(bar_positions, genre_counts, labels = genre_counts, pos = 3, cex = 0.8, col = "black")
+```
+```{r}
+colnames(df2)
+```
+
+
