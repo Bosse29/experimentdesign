@@ -16,7 +16,18 @@ df1 <- read.table("u.user", header = FALSE, sep = "|")
 colnames(df1) <- c("user_id", "age", "gender", "occupation", "zip_code")
 summary(df1)
 dim(df1)
-table(df1$gender, df1$occupation)
+# Create a contingency table of gender and occupation
+gender_occupation_table <- table(df1$gender, df1$occupation)
+
+# Calculate relative frequencies by gender
+relative_frequencies <- prop.table(gender_occupation_table, margin = 1)  # Margin = 1 calculates by row (gender)
+
+# Display the counts and relative frequencies
+cat("Absolute Frequencies:\n")
+print(gender_occupation_table)
+
+cat("\nRelative Frequencies (by Gender):\n")
+print(relative_frequencies)
 
 ```
 ```{r}
@@ -729,6 +740,33 @@ highest_lowest_genres_by_occupation <- average_rating_by_occupation_genre %>%
 
 # Display the results
 print(highest_lowest_genres_by_occupation)
+
+```
+```{r}
+library(dplyr)
+
+# Initialize a data frame to hold movie counts for each genre
+movie_count_by_genre <- data.frame(
+  Genre = character(),
+  Movie_Count = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each genre and calculate the movie count
+for (genre in genre_columns) {
+  count <- df %>%
+    filter(!!sym(genre) == 1) %>%  # Select movies in the current genre
+    summarise(Movie_Count = n_distinct(movie_id))  # Count unique movie_id
+  
+  # Append the result to the data frame
+  movie_count_by_genre <- rbind(movie_count_by_genre, data.frame(
+    Genre = genre,
+    Movie_Count = count$Movie_Count
+  ))
+}
+
+# Display the movie counts for each genre
+print(movie_count_by_genre)
 
 ```
 
