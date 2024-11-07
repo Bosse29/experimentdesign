@@ -6,22 +6,278 @@ date: "2024-11-06"
 
 ```{r}
 df <- read.table("u.data", header = FALSE, sep = "\t")
-colnames(df) <- c("user id", "item id", "rating", "timestamp")
+colnames(df) <- c("user_id", "movie_id", "rating", "timestamp")
 df$date <- as.POSIXct(df$timestamp, origin = "1970-01-01", tz = "UTC")
+dim(df)
 summary(df)
 ```
+```{r}
+df1 <- read.table("u.user", header = FALSE, sep = "|")
+colnames(df1) <- c("user_id", "age", "gender", "occupation", "zip_code")
+summary(df1)
+dim(df1)
+table(df1$gender, df1$occupation)
+
+```
+```{r}
+# Merge df with df1 on user_id
+df <- merge(df, df1, by = "user_id", all.x = TRUE)
+
+# View the updated df with columns from df1 added
+head(df)
+
+```
+```{r}
+df2 <- read.table("u.item", sep = "|", header = FALSE, fill = TRUE, fileEncoding = "UTF-8", quote = "\"", 
+                 col.names = c("movie_id", "movie_title", "release_date", "video_release_date",
+                               "IMDb_URL", "unknown", "Action", "Adventure", "Animation",
+                               "Children", "Comedy", "Crime", "Documentary", "Drama", 
+                               "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery", 
+                               "Romance", "Sci-Fi", "Thriller", "War", "Western"))
+df2$video_release_date <- df2$release_date
+df2$release_date <- sub(".*\\((\\d{4})\\).*", "\\1", df2$movie_title)
+dim(df2)
+summary(df2)
+```
+
+```{r}
+# Merge df with df2 based on movie_id, adding all columns from df2 to df
+df <- merge(df, df0
+            2, by = "movie_id", all.x = TRUE)
+
+# View the updated df
+summary(df)
+
+```
+
+```{r}
+# Calculate the correlation between rating and age
+correlation_rating_age <- cor(df$rating, df$age, use = "complete.obs")
+
+# Display the correlation
+cat("Correlation between rating and age:", correlation_rating_age, "\n")
+
+```
+```{r}
+# Calculate the average rating for each occupation
+average_rating_by_occupation <- aggregate(rating ~ occupation, data = df, FUN = mean)
+
+# Rename the column for clarity
+colnames(average_rating_by_occupation)[2] <- "average_rating"
+
+# Display the results
+print(average_rating_by_occupation)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate the most-rated movie for each occupation and its average rating
+most_rated_movies_by_occupation <- df %>%
+  group_by(occupation, movie_id) %>%
+  summarise(rating_count = n(), average_rating = mean(rating), .groups = "drop") %>%
+  group_by(occupation) %>%
+  filter(rating_count == max(rating_count)) %>%
+  ungroup()
+
+# Merge with df2 to get the movie title
+most_rated_movies_with_titles <- most_rated_movies_by_occupation %>%
+  left_join(df2 %>% select(movie_id, movie_title), by = "movie_id")
+
+# Display the results
+print(most_rated_movies_with_titles)
+
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+# Calculate the genre rating counts by occupation and reshape with pivot_longer
+top_and_fewest_genres_by_occupation <- df %>%
+  group_by(occupation) %>%
+  summarise(
+    Action = sum(Action, na.rm = TRUE),
+    Adventure = sum(Adventure, na.rm = TRUE),
+    Animation = sum(Animation, na.rm = TRUE),
+    Children = sum(Children, na.rm = TRUE),
+    Comedy = sum(Comedy, na.rm = TRUE),
+    Crime = sum(Crime, na.rm = TRUE),
+    Documentary = sum(Documentary, na.rm = TRUE),
+    Drama = sum(Drama, na.rm = TRUE),
+    Fantasy = sum(Fantasy, na.rm = TRUE),
+    Film_Noir = sum(Film.Noir, na.rm = TRUE),
+    Horror = sum(Horror, na.rm = TRUE),
+    Musical = sum(Musical, na.rm = TRUE),
+    Mystery = sum(Mystery, na.rm = TRUE),
+    Romance = sum(Romance, na.rm = TRUE),
+    Sci_Fi = sum(Sci.Fi, na.rm = TRUE),
+    Thriller = sum(Thriller, na.rm = TRUE),
+    War = sum(War, na.rm = TRUE),
+    Western = sum(Western, na.rm = TRUE)
+  ) %>%
+  pivot_longer(cols = -occupation, names_to = "Genre", values_to = "Rating_Count") %>%
+  group_by(occupation) %>%
+  summarise(
+    Top_1_Rated_Genre = Genre[order(-Rating_Count)][1],
+    Top_1_Count = Rating_Count[order(-Rating_Count)][1],
+    Top_2_Rated_Genre = Genre[order(-Rating_Count)][2],
+    Top_2_Count = Rating_Count[order(-Rating_Count)][2],
+    Top_3_Rated_Genre = Genre[order(-Rating_Count)][3],
+    Top_3_Count = Rating_Count[order(-Rating_Count)][3],
+    Fewest_Rated_Genre = Genre[which.min(Rating_Count)],
+    Fewest_Rated_Count = min(Rating_Count)
+  ) %>%
+  ungroup()
+
+# Display the result
+print(top_and_fewest_genres_by_occupation)
+
+```
+```{r}
+library(dplyr)
+
+# Initialize an empty data frame to store results
+genre_movies_summary <- data.frame(
+  Genre = character(),
+  Highest_Rated_Movie_ID = integer(),
+  Highest_Rated_Movie_Title = character(),
+  Highest_Average_Rating = numeric(),
+  Most_Rated_Movie_ID = integer(),
+  Most_Rated_Movie_Title = character(),
+  Most_Rated_Count = integer(),
+  Most_Rated_Average_Rating = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each genre and find the highest-rated and most-rated movies
+for (genre in genre_columns) {
+  # Filter df for movies in the genre
+  genre_movies <- df %>%
+    filter(!!sym(genre) == 1)
+  
+  # Calculate the highest-rated movie
+  highest_rated_movie <- genre_movies %>%
+    group_by(movie_id) %>%
+    summarise(Average_Rating = mean(rating, na.rm = TRUE)) %>%
+    slice_max(Average_Rating, n = 1, with_ties = FALSE) %>%
+    left_join(df2 %>% select(movie_id, movie_title), by = "movie_id") %>%
+    ungroup()
+  
+  # Calculate the most-rated movie and its average rating
+  most_rated_movie <- genre_movies %>%
+    group_by(movie_id) %>%
+    summarise(Rating_Count = n(), Average_Rating = mean(rating, na.rm = TRUE)) %>%
+    slice_max(Rating_Count, n = 1, with_ties = FALSE) %>%
+    left_join(df2 %>% select(movie_id, movie_title), by = "movie_id") %>%
+    ungroup()
+  
+  # Append results to the summary data frame
+  genre_movies_summary <- rbind(genre_movies_summary, data.frame(
+    Genre = genre,
+    Highest_Rated_Movie_ID = highest_rated_movie$movie_id,
+    Highest_Rated_Movie_Title = highest_rated_movie$movie_title,
+    Highest_Average_Rating = highest_rated_movie$Average_Rating,
+    Most_Rated_Movie_ID = most_rated_movie$movie_id,
+    Most_Rated_Movie_Title = most_rated_movie$movie_title,
+    Most_Rated_Count = most_rated_movie$Rating_Count,
+    Most_Rated_Average_Rating = most_rated_movie$Average_Rating
+  ))
+}
+
+# Display the combined table
+print(genre_movies_summary)
+
+```
+
+
+
+
 ```{r}
 hist_data <- hist(df$rating, ylim = c(0,40000))
 text(x = hist_data$mids, y = hist_data$counts, labels = hist_data$counts, 
      pos = 3, cex = 0.8, col = "black")
 ```
+```{r}
+hist(df$movie_id)
+```
+```{r}
+movie_id_counts <- table(df$movie_id)
 
+# Find the user_id with the maximum count
+most_frequent_movie_id <- names(which.max(movie_id_counts))
+
+# Get the maximum count for this user_id
+max_count <- max(movie_id_counts)
+
+# Print the result
+cat("movie ID occurring most often:", most_frequent_movie_id, "with", max_count, "occurrences\n")
+```
 
 ```{r}
-df1 <- read.table("u.user", header = FALSE, sep = "|")
-colnames(df1) <- c("user id", "age", "gender", "occupation", "zip code")
-summary(df1)
+# Count the occurrences of each user_id
+user_id_counts <- table(df$user_id)
+
+# Find the user_id with the maximum count
+most_frequent_user_id <- names(which.max(user_id_counts))
+
+# Get the maximum count for this user_id
+max_count <- max(user_id_counts)
+
+# Retrieve the age and occupation of this user from df1
+user_info <- df1 %>%
+  filter(user_id == as.integer(most_frequent_user_id)) %>%
+  select(user_id, age, occupation) %>%
+  distinct()
+
+# Print the result
+cat("User ID occurring most often:", most_frequent_user_id, "with", max_count, "occurrences\n")
+cat("Age:", user_info$age, "\n")
+cat("Occupation:", user_info$occupation, "\n")
+
 ```
+
+```{r}
+# Count the occurrences of each user_id
+user_id_counts <- table(df$user_id)
+
+# Find the user_id with the minimum count
+least_frequent_user_id <- names(which.min(user_id_counts))
+
+# Get the minimum count for this user_id
+min_count <- min(user_id_counts)
+
+# Retrieve the age and occupation of this user from df1 (assuming df1 contains user info)
+user_info <- df1 %>%
+  filter(user_id == as.integer(least_frequent_user_id)) %>%
+  select(user_id, age, occupation) %>%
+  distinct()
+
+# Print the result
+cat("User ID occurring fewest times:", least_frequent_user_id, "with", min_count, "occurrence(s)\n")
+cat("Age:", user_info$age, "\n")
+cat("Occupation:", user_info$occupation, "\n")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
 hist(df1$age)
 df1$gender <- as.factor(df1$gender)
@@ -46,26 +302,198 @@ occupation_counts <- sort(table(df1$occupation), decreasing = FALSE)
 
 par(mar = c(10, 4, 4, 2) + 0.1) 
 # Create the bar plot with counts for each occupation
-bar_positions <- barplot(occupation_counts, main = "Occupation Distribution", ylim = c(0,240),
+bar_positions <- barplot(occupation_counts, main = "Occupation Distribution", ylim = c(0,280),
                         ylab = "Count", col = "lightblue", las = 2)
 
 # Add text labels with the counts on top of each bar
 text(x = bar_positions, y = occupation_counts, labels = occupation_counts, 
      pos = 3, cex = 0.8, col = "black")
 ```
+```{r}
+length(unique(df1$zip_code))
+```
+```{r}
+# Count occurrences of each zip code
+zip_code_counts <- table(df1$zip_code)
+
+# Find the most frequent zip code(s)
+most_frequent_zip <- names(which.max(zip_code_counts))
+most_frequent_count <- max(zip_code_counts)
+
+# Find the least frequent zip code(s)
+least_frequent_zip <- names(which.min(zip_code_counts))
+least_frequent_count <- min(zip_code_counts)
+
+# Print results
+cat("Most frequent zip code:", most_frequent_zip, "with", most_frequent_count, "occurrences\n")
+cat("Least frequent zip code:", least_frequent_zip, "with", least_frequent_count, "occurrence(s)\n")
+
+```
+
+
+
+
+
+
 
 
 ```{r}
-df2 <- read.table("u.item", sep = "|", header = FALSE, fill = TRUE, fileEncoding = "UTF-8", quote = "\"", 
-                 col.names = c("movie_id", "movie_title", "release_date", "video_release_date",
-                               "IMDb_URL", "unknown", "Action", "Adventure", "Animation",
-                               "Children", "Comedy", "Crime", "Documentary", "Drama", 
-                               "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery", 
-                               "Romance", "Sci-Fi", "Thriller", "War", "Western"))
-df2$video_release_date <- df2$release_date
-df2$release_date <- sub(".*\\((\\d{4})\\).*", "\\1", df2$movie_title)
-summary(df2)
+# Select rating and genre columns
+genre_columns <- c("Action", "Adventure", "Animation", "Children", "Comedy", "Crime", 
+                   "Documentary", "Drama", "Fantasy", "Film.Noir", "Horror", 
+                   "Musical", "Mystery", "Romance", "Sci.Fi", "Thriller", 
+                   "War", "Western")
+
+# Calculate correlation between rating and each genre
+correlations <- sapply(genre_columns, function(genre) cor(df$rating, df[[genre]], use = "complete.obs"))
+
+# Display the correlations
+correlations_df <- data.frame(Genre = genre_columns, Correlation_with_Rating = correlations)
+print(correlations_df)
+
+
 ```
+```{r}
+# List of genre columns
+genre_columns <- c("Action", "Adventure", "Animation", "Children", "Comedy", "Crime", 
+                   "Documentary", "Drama", "Fantasy", "Film.Noir", "Horror", 
+                   "Musical", "Mystery", "Romance", "Sci.Fi", "Thriller", 
+                   "War", "Western")
+
+# Initialize an empty data frame to store the results
+genre_stats <- data.frame(
+  Genre = character(),
+  Count = integer(),
+  Mean = numeric(),
+  Median = numeric(),
+  Rating_1 = integer(),
+  Rating_2 = integer(),
+  Rating_3 = integer(),
+  Rating_4 = integer(),
+  Rating_5 = integer(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each genre to calculate statistics
+for (genre in genre_columns) {
+  # Check if the genre column contains only 0s and 1s
+  if (all(df[[genre]] %in% c(0, 1))) {
+    # Filter ratings for movies in this genre
+    genre_ratings <- df$rating[df[[genre]] == 1]
+    
+    # Only add data if there are ratings for this genre
+    if (length(genre_ratings) > 0) {
+      # Calculate statistics
+      count <- length(genre_ratings)
+      mean_rating <- mean(genre_ratings)
+      median_rating <- median(genre_ratings)
+      
+      # Count individual ratings from 1 to 5
+      rating_counts <- table(factor(genre_ratings, levels = 1:5))
+      
+      # Append the results to the genre_stats data frame
+      genre_stats <- rbind(genre_stats, data.frame(
+        Genre = genre,
+        Count = count,
+        Mean = round(mean_rating, 2),
+        Median = round(median_rating, 2),
+        Rating_1 = rating_counts[1],
+        Rating_2 = rating_counts[2],
+        Rating_3 = rating_counts[3],
+        Rating_4 = rating_counts[4],
+        Rating_5 = rating_counts[5]
+      ))
+    } else {
+      message(paste("No ratings available for genre:", genre))
+    }
+  } else {
+    message(paste("The column", genre, "does not contain binary values (0 or 1) only."))
+  }
+}
+
+# Display the table with counts, mean, median, and individual rating counts for each genre
+print(genre_stats)
+
+```
+
+
+
+```{r}
+# Calculate the average rating for each movie_id
+average_ratings <- aggregate(rating ~ movie_id, data = df, FUN = mean)
+
+# Rename the column to clarify it's the average rating
+colnames(average_ratings)[2] <- "average_rating"
+
+# Merge with df2 to include movie name and other details
+average_ratings_with_name <- merge(average_ratings, df2[, c("movie_id", "movie_title")], 
+                                   by = "movie_id", all.x = TRUE)
+
+# Calculate the maximum and minimum average ratings
+max_rating <- max(average_ratings_with_name$average_rating)
+min_rating <- min(average_ratings_with_name$average_rating)
+
+# Get all movies with the highest average rating
+highest_rated_movies <- subset(average_ratings_with_name, average_rating == max_rating)
+
+# Get all movies with the lowest average rating
+lowest_rated_movies <- subset(average_ratings_with_name, average_rating == min_rating)
+
+# Display the results
+cat("Highest Rated Movies:\n")
+print(highest_rated_movies)
+
+cat("\nLowest Rated Movies:\n")
+print(lowest_rated_movies)
+
+
+```
+```{r}
+# Filter the data for 5-star ratings only
+five_star_ratings <- df[df$rating == 5, ]
+
+# Count the number of 5-star ratings for each movie_id
+five_star_counts <- table(five_star_ratings$movie_id)
+
+# Find the movie_id with the maximum count of 5-star ratings
+max_five_star_movie_id <- names(which.max(five_star_counts))
+max_five_star_count <- max(five_star_counts)
+
+# Get the movie title corresponding to the movie_id
+movie_title <- df2$movie_title[df2$movie_id == max_five_star_movie_id]
+
+# Display the result
+cat("Movie with the most 5-star ratings:\n")
+cat("Movie ID:", max_five_star_movie_id, "\n")
+cat("Title:", movie_title, "\n")
+cat("Number of 5-star ratings:", max_five_star_count, "\n")
+
+```
+```{r}
+# Filter the data for 1-star ratings only
+one_star_ratings <- df[df$rating == 1, ]
+
+# Count the number of 1-star ratings for each movie_id
+one_star_counts <- table(one_star_ratings$movie_id)
+
+# Find the movie_id with the maximum count of 1-star ratings
+max_one_star_movie_id <- names(which.max(one_star_counts))
+max_one_star_count <- max(one_star_counts)
+
+# Get the movie title corresponding to the movie_id
+one_star_movie_title <- df2$movie_title[df2$movie_id == max_one_star_movie_id]
+
+# Display the result
+cat("Movie with the most 1-star ratings:\n")
+cat("Movie ID:", max_one_star_movie_id, "\n")
+cat("Title:", one_star_movie_title, "\n")
+cat("Number of 1-star ratings:", max_one_star_count, "\n")
+
+```
+
+
+
+
 ```{r}
 genres <- df2[ ,c("Action", "Adventure", "Animation", "Children", "Comedy", "Crime", "Documentary", "Drama", "Fantasy", "Film.Noir", "Horror", "Musical", "Mystery", "Romance", "Sci.Fi", "Thriller", "War", "Western")]
 
@@ -73,7 +501,7 @@ genres <- df2[ ,c("Action", "Adventure", "Animation", "Children", "Comedy", "Cri
 genre_counts <- colSums(genres)
 
 # Create a bar plot for genre counts
-bar_positions <- barplot(genre_counts, main = "Total Counts of Movies in Each Genre", ylim = c(0, 800),
+bar_positions <- barplot(genre_counts, main = "Total Counts of Movies in Each Genre", ylim = c(0, 820),
                          ylab = "Count of Movies", col = "lightblue", las = 2)
 
 # Add text labels with the absolute counts on top of each bar
@@ -83,4 +511,224 @@ text(bar_positions, genre_counts, labels = genre_counts, pos = 3, cex = 0.8, col
 colnames(df2)
 ```
 
+```{r}
+library(dplyr)
+
+# Function to calculate mode
+get_mode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+# Calculate max, min, mean, median, and mode of age for each occupation
+age_stats_by_occupation <- df %>%
+  select(user_id, age, occupation) %>%
+  distinct() %>%  # Keep only unique users
+  group_by(occupation) %>%
+  summarise(
+    Max_Age = max(age, na.rm = TRUE),
+    Min_Age = min(age, na.rm = TRUE),
+    Mean_Age = mean(age, na.rm = TRUE),
+    Median_Age = median(age, na.rm = TRUE),
+    Mode_Age = get_mode(age)
+  ) %>%
+  ungroup()
+
+# Display the result
+print(age_stats_by_occupation)
+
+```
+
+```{r}
+library(dplyr)
+
+# Calculate the number of ratings and average rating for each movie
+most_rated_movie <- df %>%
+  group_by(movie_id) %>%
+  summarise(
+    Rating_Count = n(),
+    Average_Rating = mean(rating, na.rm = TRUE)
+  ) %>%
+  slice_max(Rating_Count, n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+# Merge to get the movie title
+most_rated_movie <- most_rated_movie %>%
+  left_join(df2 %>% select(movie_id, movie_title), by = "movie_id")
+
+# Display the result
+print(most_rated_movie)
+
+```
+```{r}
+library(dplyr)
+
+# Define a function to get the most rated movies for a given gender
+get_most_rated_movies_by_gender <- function(gender) {
+  most_rated_movies <- df %>%
+    filter(gender == !!gender) %>%  # Filter by gender
+    group_by(movie_id) %>%
+    summarise(Rating_Count = n(), .groups = "drop") %>%
+    slice_max(Rating_Count, n = 1, with_ties = FALSE) %>%
+    left_join(df2 %>% select(movie_id, movie_title), by = "movie_id")
+  
+  return(most_rated_movies)
+}
+
+# Get the most rated movies for males and females
+most_rated_movies_male <- get_most_rated_movies_by_gender("M")
+most_rated_movies_female <- get_most_rated_movies_by_gender("F")
+
+# Display the results
+cat("Most Rated Movie for Males:\n")
+print(most_rated_movies_male)
+
+cat("\nMost Rated Movie for Females:\n")
+print(most_rated_movies_female)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate age statistics for each gender
+age_statistics_by_gender <- df %>%
+  group_by(gender) %>%
+  summarise(
+    Average_Age = mean(age, na.rm = TRUE),
+    Median_Age = median(age, na.rm = TRUE),
+    Max_Age = max(age, na.rm = TRUE),
+    Min_Age = min(age, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Display the results
+print(age_statistics_by_gender)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate average rating for each gender
+average_rating_by_gender <- df %>%
+  group_by(gender) %>%
+  summarise(
+    Average_Rating = mean(rating, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Display the results
+print(average_rating_by_gender)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate the frequency of each genre rated by male and female users
+most_frequent_genres_by_gender <- df %>%
+  group_by(gender) %>%
+  summarise(across(all_of(genre_columns), ~ sum(. == 1, na.rm = TRUE))) %>%
+  pivot_longer(cols = -gender, names_to = "Genre", values_to = "Count") %>%
+  group_by(gender) %>%
+  top_n(20, Count) %>%
+  arrange(gender, desc(Count))
+
+# Display the results
+print(most_frequent_genres_by_gender)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate the total ratings and genre counts by gender
+genre_counts_by_gender <- df %>%
+  select(gender, all_of(genre_columns)) %>%
+  pivot_longer(cols = all_of(genre_columns), names_to = "Genre", values_to = "Is_Rated") %>%
+  filter(Is_Rated == 1) %>%
+  group_by(gender, Genre) %>%
+  summarise(Count = n(), .groups = "drop")
+
+# Calculate total ratings by gender
+total_ratings_by_gender <- df %>%
+  group_by(gender) %>%
+  summarise(Total_Ratings = n(), .groups = "drop")
+
+# Join total ratings back to genre counts
+relative_portion_by_gender <- genre_counts_by_gender %>%
+  left_join(total_ratings_by_gender, by = "gender") %>%
+  mutate(Relative_Portions = Count / Total_Ratings) %>%
+  select(gender, Genre, Relative_Portions)
+
+# Display the relative portions of ratings for each genre by gender
+print(relative_portion_by_gender)
+
+```
+
+```{r}
+library(dplyr)
+
+# Step 1: Calculate the average rating for each movie
+average_rating_per_movie <- df %>%
+  group_by(movie_id) %>%
+  summarise(Average_Rating = mean(rating, na.rm = TRUE), .groups = "drop")
+
+# Step 2: Join back with the original df to get genre information and calculate average rating per genre
+average_rating_by_genre <- df %>%
+  select(movie_id, all_of(genre_columns)) %>%
+  distinct() %>%
+  left_join(average_rating_per_movie, by = "movie_id") %>%
+  pivot_longer(cols = all_of(genre_columns), names_to = "Genre", values_to = "Is_Rated") %>%
+  filter(Is_Rated == 1) %>%
+  group_by(Genre) %>%
+  summarise(Average_Rating = mean(Average_Rating, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(Average_Rating))  # Sort by average rating in descending order
+
+# Display the average ratings for each genre sorted
+print(average_rating_by_genre)
+
+
+```
+```{r}
+library(dplyr)
+
+# Calculate average rating for each genre for each gender
+average_rating_by_genre_and_gender <- df %>%
+  select(user_id, gender, rating, all_of(genre_columns)) %>%  # Include the gender column
+  distinct() %>%
+  pivot_longer(cols = all_of(genre_columns), names_to = "Genre", values_to = "Is_Rated") %>%
+  filter(Is_Rated == 1) %>%
+  group_by(gender, Genre) %>%
+  summarise(Average_Rating = mean(rating, na.rm = TRUE), .groups = "drop") %>%
+  arrange(gender, desc(Average_Rating))  # Sort by gender and then by average rating in descending order
+
+# Display the average ratings for each genre by gender
+print(average_rating_by_genre_and_gender)
+
+```
+```{r}
+library(dplyr)
+
+# Calculate the average rating for each genre by occupation
+average_rating_by_occupation_genre <- df %>%
+  select(user_id, occupation, all_of(genre_columns), rating) %>%
+  distinct() %>%
+  pivot_longer(cols = all_of(genre_columns), names_to = "Genre", values_to = "Is_Rated") %>%
+  filter(Is_Rated == 1) %>%
+  group_by(occupation, Genre) %>%
+  summarise(Average_Rating = mean(rating, na.rm = TRUE), .groups = "drop")
+
+# Find the highest and lowest rated genres for each occupation
+highest_lowest_genres_by_occupation <- average_rating_by_occupation_genre %>%
+  group_by(occupation) %>%
+  summarise(
+    Highest_Rated_Genre = Genre[which.max(Average_Rating)],
+    Highest_Average_Rating = max(Average_Rating),
+    Lowest_Rated_Genre = Genre[which.min(Average_Rating)],
+    Lowest_Average_Rating = min(Average_Rating),
+    .groups = "drop"
+  )
+
+# Display the results
+print(highest_lowest_genres_by_occupation)
+
+```
 
